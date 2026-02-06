@@ -13,8 +13,12 @@ player = {
     "attack": 10,
     "defense": 5,
     "hunger": 100,
-    "max_hunger": 100
+    "max_hunger": 100,
+    "step_counter": 0  # Compteur de pas (faim -1 tous les 3 pas)
 }
+
+# Nombre de pas avant de perdre 1 point de faim
+STEPS_PER_HUNGER = 3
 
 
 def calculate_visible_tiles(player_x, player_y, vision_radius):
@@ -46,6 +50,7 @@ def reset_player(first_room):
     player["attack"] = 10
     player["defense"] = 5
     player["hunger"] = player["max_hunger"]
+    player["step_counter"] = 0
 
     # Position dans la première salle
     if first_room:

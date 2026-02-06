@@ -7,7 +7,7 @@ import pygame
 import sys
 from map_generation import create_dungeon, MAP_WIDTH, MAP_HEIGHT
 from enemies import spawn_enemies, get_enemy_at, enemy_turn
-from player import player, calculate_visible_tiles, reset_player, spawn_player_in_room, check_hunger
+from player import player, calculate_visible_tiles, reset_player, spawn_player_in_room, check_hunger, STEPS_PER_HUNGER
 from rendering import (draw_map, draw_player, draw_enemies, draw_items, draw_ui,
                        set_visible_tiles, draw_inventory, draw_inventory_button,
                        draw_tooltip, draw_enemy_tooltip,
@@ -212,11 +212,14 @@ while running:
                 player["x"] = new_x
                 player["y"] = new_y
 
-                # La faim diminue en se déplaçant
-                player["hunger"] -= 1
-                if check_hunger():
-                    game_over()
-                    continue
+                # La faim diminue tous les STEPS_PER_HUNGER pas
+                player["step_counter"] += 1
+                if player["step_counter"] >= STEPS_PER_HUNGER:
+                    player["step_counter"] = 0
+                    player["hunger"] -= 1
+                    if check_hunger():
+                        game_over()
+                        continue
 
                 # Vérifier s'il y a un objet à ramasser
                 item_at_position = get_item_at(player["x"], player["y"], items)
