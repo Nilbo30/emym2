@@ -345,15 +345,15 @@ def draw_enemy_tooltip(screen, enemy, mouse_x, mouse_y, SCREEN_WIDTH, SCREEN_HEI
     """Dessine une infobulle avec les stats de l'ennemi au survol"""
 
     # Dimensions du tooltip
-    tooltip_width = 180
+    tooltip_width = 240
     tooltip_padding = 10
     line_height = 25
 
     # Préparer le texte
     lines = []
-    lines.append("Ennemi")
+    lines.append(enemy.get("name", "Ennemi"))
     lines.append(f"PV: {enemy['hp']}/{enemy['max_hp']}")
-    lines.append(f"ATK: {enemy['attack']}")
+    lines.append(f"ATK: {enemy['attack']}  DEF: {enemy.get('defense', 0)}")
 
     # Calculer hauteur du tooltip
     tooltip_height = len(lines) * line_height + tooltip_padding * 2

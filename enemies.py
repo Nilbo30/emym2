@@ -1,56 +1,78 @@
 """
-Gestion des ennemis : spawn et IA
+Gestion des ennemis : spawn (races/classes/groupes) et IA
 """
 
 import random
+from races_and_classes import CLASSES, select_floor_pool, create_enemy
 
 # ==========================================
-# SPAWN DES ENNEMIS
+# SPAWN DES ENNEMIS (système races/classes)
 # ==========================================
 
-def spawn_enemies(num_enemies, rooms, current_floor):
+def spawn_enemies(num_slots, rooms, current_floor):
     """
-    Spawne des ennemis dans les salles
+    Spawne des groupes d'ennemis dans les salles.
+
+    Chaque "slot" = un groupe d'ennemis de la même race.
+    La taille du groupe dépend de la race (group_size).
+
+    Étapes :
+        1. Sélectionner 3-5 races pour cet étage (courbe de probabilité)
+        2. Pour chaque slot, choisir une race du pool (pondéré)
+        3. Spawner le groupe complet dans la même salle
+        4. Chaque ennemi du groupe reçoit une classe aléatoire
 
     Args:
-        num_enemies: Nombre d'ennemis à créer
+        num_slots: Nombre de "slots" (groupes) à spawner
         rooms: Liste des salles du donjon
-        current_floor: Étage actuel (pour calculer les stats)
+        current_floor: Étage actuel (1-100)
 
     Returns:
-        Liste d'ennemis
+        Liste d'ennemis (dictionnaires compatibles avec le reste du code)
     """
     enemies = []
 
-    # Calculer les stats selon l'étage
-    base_hp = 30
-    base_attack = 5
+    if not rooms:
+        return enemies
 
-    enemy_hp = base_hp + (current_floor - 1) * 5
-    enemy_attack = base_attack + (current_floor - 1) * 1
+    # 1. Sélectionner le pool de races pour cet étage
+    floor_pool = select_floor_pool(current_floor)
 
-    for _ in range(num_enemies):
-        if not rooms:  # Sécurité si pas de salles
-            break
+    if not floor_pool:
+        return enemies
 
-        # Choisir une salle au hasard
+    # Séparer races et poids pour la sélection pondérée
+    pool_races = [race for race, _ in floor_pool]
+    pool_weights = [weight for _, weight in floor_pool]
+
+    # Afficher le pool dans la console (debug)
+    race_names = [r["name"] for r in pool_races]
+    print(f"[Étage {current_floor}] Races disponibles : {', '.join(race_names)}")
+
+    for _ in range(num_slots):
+        # 2. Choisir une race dans le pool (pondéré)
+        race = random.choices(pool_races, weights=pool_weights, k=1)[0]
+
+        # 3. Déterminer la taille du groupe
+        group_min, group_max = race["group_size"]
+        group_size = random.randint(group_min, group_max)
+
+        # 4. Choisir une salle pour tout le groupe
         room = random.choice(rooms)
 
-        # Position aléatoire dans cette salle
-        x = random.randint(room["x"] + 1, room["x"] + room["w"] - 2)
-        y = random.randint(room["y"] + 1, room["y"] + room["h"] - 2)
+        # 5. Spawner chaque ennemi du groupe dans cette salle
+        for _ in range(group_size):
+            enemy_class = random.choice(CLASSES)
 
-        # Vérifier qu'il n'y a pas déjà un ennemi ici
-        if not any(e["x"] == x and e["y"] == y for e in enemies):
-            enemies.append({
-                "x": x,
-                "y": y,
-                "hp": enemy_hp,
-                "max_hp": enemy_hp,
-                "attack": enemy_attack,
-                "symbol": "e",
-                "color": (255, 100, 100)
-            })
+            # Trouver une position libre (max 20 tentatives)
+            for _attempt in range(20):
+                x = random.randint(room["x"] + 1, room["x"] + room["w"] - 2)
+                y = random.randint(room["y"] + 1, room["y"] + room["h"] - 2)
+
+                if not any(e["x"] == x and e["y"] == y for e in enemies):
+                    enemy = create_enemy(race, enemy_class, current_floor, x, y)
+                    enemies.append(enemy)
+                    break
 
     return enemies
 
