@@ -5,10 +5,13 @@ Boucle de jeu et coordination
 
 import pygame
 import sys
-from map_generation import create_dungeon
+from map_generation import create_dungeon, MAP_WIDTH, MAP_HEIGHT
 from enemies import spawn_enemies, get_enemy_at, enemy_turn
 from player import player, calculate_visible_tiles, reset_player, spawn_player_in_room, check_hunger
-from rendering import draw_map, draw_player, draw_enemies, draw_items, draw_ui, set_visible_tiles, draw_inventory, draw_inventory_button, draw_tooltip, draw_enemy_tooltip
+from rendering import (draw_map, draw_player, draw_enemies, draw_items, draw_ui,
+                       set_visible_tiles, draw_inventory, draw_inventory_button,
+                       draw_tooltip, draw_enemy_tooltip,
+                       update_camera, get_camera, VIEWPORT_WIDTH, VIEWPORT_HEIGHT)
 from game_logic import get_item_at, pickup_item, combat, spawn_items, can_move
 from inventory import clear_inventory, print_inventory
 
@@ -17,11 +20,9 @@ pygame.init()
 
 # Constantes
 TILE_SIZE = 32
-MAP_WIDTH = 25
-MAP_HEIGHT = 20
-SCREEN_WIDTH = TILE_SIZE * MAP_WIDTH
-SCREEN_HEIGHT = TILE_SIZE * MAP_HEIGHT
-VISION_RADIUS = 6
+SCREEN_WIDTH = TILE_SIZE * VIEWPORT_WIDTH    # 35 cases affichées
+SCREEN_HEIGHT = TILE_SIZE * VIEWPORT_HEIGHT  # 17 cases affichées
+VISION_RADIUS = 9
 
 # Couleurs
 BLACK = (0, 0, 0)
@@ -254,9 +255,10 @@ while running:
 
     # Tooltip d'ennemi (seulement si inventaire FERMÉ)
     if not inventory_open:
-        # Convertir position souris en position grille
-        grid_x = mouse_x // TILE_SIZE
-        grid_y = mouse_y // TILE_SIZE
+        # Convertir position souris en position grille (monde)
+        cam_x, cam_y = get_camera()
+        grid_x = cam_x + mouse_x // TILE_SIZE
+        grid_y = cam_y + mouse_y // TILE_SIZE
 
         # Vérifier s'il y a un ennemi à cette position
         for enemy in enemies:
@@ -266,6 +268,9 @@ while running:
                 if (enemy["x"], enemy["y"]) in visible_tiles:
                     hovered_enemy = enemy
                     break
+
+    # Mettre à jour la caméra (centrée sur le joueur)
+    update_camera(player["x"], player["y"], MAP_WIDTH, MAP_HEIGHT)
 
     # Effacer l'écran
     screen.fill(BLACK)

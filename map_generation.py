@@ -5,9 +5,9 @@ Système de salles + couloirs
 
 import random
 
-# Constantes de la carte
-MAP_WIDTH = 25
-MAP_HEIGHT = 20
+# Constantes de la carte (style DCSS : large donjon)
+MAP_WIDTH = 80
+MAP_HEIGHT = 70
 
 def create_dungeon():
     """
@@ -24,14 +24,14 @@ def create_dungeon():
             row.append('#')
         game_map.append(row)
 
-    # 2. Créer 5-8 salles aléatoires
+    # 2. Créer ~20 salles de tailles variées
     rooms = []
-    num_rooms = random.randint(5, 8)
+    num_rooms = random.randint(15, 25)
 
     for i in range(num_rooms):
-        # Taille aléatoire de la salle
-        width = random.randint(5, 10)
-        height = random.randint(4, 8)
+        # Taille aléatoire : petites (4×4) à grandes (15×12)
+        width = random.randint(4, 15)
+        height = random.randint(4, 12)
 
         # Position aléatoire
         x = random.randint(1, MAP_WIDTH - width - 1)
