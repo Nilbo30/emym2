@@ -16,9 +16,22 @@ VIEWPORT_HEIGHT = 17  # Cases affichées en hauteur
 # VARIABLES GLOBALES
 # ==========================================
 
-visible_tiles = set()  # Set pour O(1) lookup
+visible_tiles = set()
 camera_x = 0
 camera_y = 0
+
+# Noms lisibles des slots
+SLOT_NAMES = {
+    "main_hand": "Main",
+    "off_hand": "Second.",
+    "body": "Torse",
+    "head": "Tête",
+    "hands": "Mains",
+    "feet": "Pieds",
+    "ring1": "Anneau 1",
+    "ring2": "Anneau 2",
+    "amulet": "Amulette",
+}
 
 
 # ==========================================
@@ -26,26 +39,19 @@ camera_y = 0
 # ==========================================
 
 def update_camera(player_x, player_y, map_width, map_height):
-    """
-    Centre la caméra sur le joueur.
-    Bloque aux bords pour ne pas montrer hors de la carte.
-    """
+    """Centre la caméra sur le joueur."""
     global camera_x, camera_y
     camera_x = player_x - VIEWPORT_WIDTH // 2
     camera_y = player_y - VIEWPORT_HEIGHT // 2
-
-    # Clamper aux limites de la carte
     camera_x = max(0, min(camera_x, map_width - VIEWPORT_WIDTH))
     camera_y = max(0, min(camera_y, map_height - VIEWPORT_HEIGHT))
 
 
 def get_camera():
-    """Retourne la position actuelle de la caméra (pour main.py)"""
     return camera_x, camera_y
 
 
 def set_visible_tiles(tiles):
-    """Met à jour les cases visibles (converties en set pour performance)"""
     global visible_tiles
     visible_tiles = set(tiles)
 
@@ -55,37 +61,26 @@ def set_visible_tiles(tiles):
 # ==========================================
 
 def _world_to_screen(world_x, world_y, tile_size):
-    """Convertit des coordonnées monde en pixels écran"""
     return (world_x - camera_x) * tile_size, (world_y - camera_y) * tile_size
 
 
 def _is_on_screen(world_x, world_y):
-    """Vérifie si une position monde est dans le viewport"""
     vx = world_x - camera_x
     vy = world_y - camera_y
     return 0 <= vx < VIEWPORT_WIDTH and 0 <= vy < VIEWPORT_HEIGHT
 
 
 # ==========================================
-# DESSIN DE LA CARTE (avec caméra + fog of war)
+# DESSIN DE LA CARTE
 # ==========================================
 
 def draw_map(screen, game_map, explored, font, TILE_SIZE, MAP_HEIGHT, MAP_WIDTH):
-    """
-    Dessine la portion visible de la carte avec fog of war.
-
-    3 états par case :
-    - Non explorée : noir total (rien affiché)
-    - Explorée mais hors vision : gris foncé (structure visible, pas les entités)
-    - Visible (dans le rayon du joueur) : couleurs complètes
-    """
+    """Dessine la portion visible de la carte avec fog of war."""
     for vy in range(VIEWPORT_HEIGHT):
         for vx in range(VIEWPORT_WIDTH):
-            # Coordonnées monde
             wx = camera_x + vx
             wy = camera_y + vy
 
-            # Hors limites de la carte
             if wx < 0 or wx >= MAP_WIDTH or wy < 0 or wy >= MAP_HEIGHT:
                 continue
 
@@ -93,41 +88,34 @@ def draw_map(screen, game_map, explored, font, TILE_SIZE, MAP_HEIGHT, MAP_WIDTH)
             is_visible = (wx, wy) in visible_tiles
             is_explored = explored[wy][wx]
 
-            # Non exploré = noir total
             if not is_explored:
                 continue
 
-            # Position en pixels sur l'écran
             sx = vx * TILE_SIZE
             sy = vy * TILE_SIZE
 
-            # Couleurs selon l'état de visibilité
             if is_visible:
-                # Visible : couleurs complètes
                 if tile == '#':
-                    color = (128, 128, 128)    # Mur gris
+                    color = (128, 128, 128)
                 elif tile == '.':
-                    color = (30, 30, 35)       # Sol légèrement visible
+                    color = (30, 30, 35)
                 elif tile == '>':
-                    color = (255, 255, 0)      # Escalier jaune vif
+                    color = (255, 255, 0)
                 else:
                     color = (255, 255, 255)
             else:
-                # Exploré mais hors vision : gris foncé
                 if tile == '#':
-                    color = (50, 50, 55)       # Mur sombre
+                    color = (50, 50, 55)
                 elif tile == '.':
-                    color = (18, 18, 22)       # Sol très sombre
+                    color = (18, 18, 22)
                 elif tile == '>':
-                    color = (80, 80, 0)        # Escalier sombre
+                    color = (80, 80, 0)
                 else:
                     color = (40, 40, 40)
 
-            # Dessiner le sol (rect)
             if tile == '.' or tile == '>':
                 pygame.draw.rect(screen, color, (sx, sy, TILE_SIZE, TILE_SIZE))
 
-            # Dessiner les caractères (murs, escaliers)
             if tile != '.':
                 text = font.render(tile, True, color)
                 text_rect = text.get_rect(center=(sx + TILE_SIZE // 2,
@@ -136,83 +124,65 @@ def draw_map(screen, game_map, explored, font, TILE_SIZE, MAP_HEIGHT, MAP_WIDTH)
 
 
 # ==========================================
-# DESSIN DES ENTITÉS (avec offset caméra)
+# DESSIN DES ENTITÉS
 # ==========================================
 
 def draw_player(screen, player, font, TILE_SIZE):
-    """Dessine le joueur (@) à sa position relative à la caméra"""
     if not _is_on_screen(player["x"], player["y"]):
         return
-
     sx, sy = _world_to_screen(player["x"], player["y"], TILE_SIZE)
-    GREEN = (0, 255, 0)
-    text = font.render('@', True, GREEN)
-    text_rect = text.get_rect(center=(sx + TILE_SIZE // 2,
-                                      sy + TILE_SIZE // 2))
+    text = font.render('@', True, (0, 255, 0))
+    text_rect = text.get_rect(center=(sx + TILE_SIZE // 2, sy + TILE_SIZE // 2))
     screen.blit(text, text_rect)
 
 
 def draw_enemies(screen, enemies, font, TILE_SIZE):
-    """Dessine les ennemis visibles dans le viewport"""
     for enemy in enemies:
-        # Seulement si visible ET dans le viewport
         if (enemy["x"], enemy["y"]) not in visible_tiles:
             continue
         if not _is_on_screen(enemy["x"], enemy["y"]):
             continue
-
         sx, sy = _world_to_screen(enemy["x"], enemy["y"], TILE_SIZE)
         text = font.render(enemy["symbol"], True, enemy["color"])
-        text_rect = text.get_rect(center=(sx + TILE_SIZE // 2,
-                                          sy + TILE_SIZE // 2))
+        text_rect = text.get_rect(center=(sx + TILE_SIZE // 2, sy + TILE_SIZE // 2))
         screen.blit(text, text_rect)
 
 
 def draw_items(screen, items, font, TILE_SIZE):
-    """Dessine les objets visibles dans le viewport"""
     for item in items:
-        # Seulement si visible ET dans le viewport
         if (item["x"], item["y"]) not in visible_tiles:
             continue
         if not _is_on_screen(item["x"], item["y"]):
             continue
-
         sx, sy = _world_to_screen(item["x"], item["y"], TILE_SIZE)
         text = font.render(item["symbol"], True, item["color"])
-        text_rect = text.get_rect(center=(sx + TILE_SIZE // 2,
-                                          sy + TILE_SIZE // 2))
+        text_rect = text.get_rect(center=(sx + TILE_SIZE // 2, sy + TILE_SIZE // 2))
         screen.blit(text, text_rect)
 
 
 # ==========================================
-# INTERFACE UTILISATEUR (positions fixes sur l'écran)
+# INTERFACE UTILISATEUR
 # ==========================================
 
 def draw_ui(screen, player, current_floor, SCREEN_WIDTH):
-    """Dessine l'interface utilisateur (stats, étage)"""
     WHITE = (255, 255, 255)
     YELLOW = (255, 255, 0)
     GREEN = (0, 255, 0)
 
     ui_font = pygame.font.Font(None, 24)
 
-    # Afficher les PV
     hp_text = ui_font.render(f"PV: {player['hp']}/{player['max_hp']}", True, WHITE)
     screen.blit(hp_text, (10, 10))
 
-    # Afficher le mana
     mana_text = ui_font.render(f"Mana: {player['mana']}/{player['max_mana']}", True, WHITE)
     screen.blit(mana_text, (10, 35))
 
-    # Afficher l'étage
-    floor_text = ui_font.render(f"Étage: {current_floor}", True, YELLOW)
+    floor_text = ui_font.render(f"Etage: {current_floor}", True, YELLOW)
     screen.blit(floor_text, (SCREEN_WIDTH - 120, 10))
 
-    # Afficher attaque et défense
     stats_text = ui_font.render(f"ATK: {player['attack']}  DEF: {player['defense']}", True, WHITE)
     screen.blit(stats_text, (10, 60))
 
-    # Afficher la faim
     if player['hunger'] > 50:
         hunger_color = GREEN
     elif player['hunger'] > 20:
@@ -225,16 +195,20 @@ def draw_ui(screen, player, current_floor, SCREEN_WIDTH):
 
 
 # ==========================================
-# INVENTAIRE (popup centré, coordonnées écran fixes)
+# INVENTAIRE (popup avec onglets sac/équipement)
 # ==========================================
 
-def draw_inventory(screen, inventory, SCREEN_WIDTH, SCREEN_HEIGHT):
-    """Dessine l'inventaire par-dessus le jeu - Retourne les coordonnées de la fenêtre et du bouton"""
+def draw_inventory(screen, inventory, SCREEN_WIDTH, SCREEN_HEIGHT, active_tab="bag"):
+    """
+    Dessine l'inventaire avec deux onglets : Sac et Équipement.
+    Retourne les coordonnées cliquables.
+    """
     from inventory import MAX_INVENTORY_SIZE
+    from player import player, EQUIPMENT_SLOTS
 
-    # Dimensions de la fenêtre d'inventaire
-    inv_width = 400
-    inv_height = 500
+    # Dimensions
+    inv_width = 450
+    inv_height = 520
     inv_x = (SCREEN_WIDTH - inv_width) // 2
     inv_y = (SCREEN_HEIGHT - inv_height) // 2
 
@@ -244,98 +218,202 @@ def draw_inventory(screen, inventory, SCREEN_WIDTH, SCREEN_HEIGHT):
     TEXT_COLOR = (255, 255, 255)
     TITLE_COLOR = (255, 255, 100)
     BUTTON_COLOR = (180, 50, 50)
+    TAB_ACTIVE = (80, 80, 120)
+    TAB_INACTIVE = (50, 50, 60)
+    EQUIPPED_BG = (50, 100, 50)
+    SLOT_EMPTY = (60, 60, 70)
 
-    # Fond semi-transparent
+    # Overlay
     overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
     overlay.set_alpha(180)
     overlay.fill((0, 0, 0))
     screen.blit(overlay, (0, 0))
 
-    # Fond de la fenêtre d'inventaire
+    # Fond
     pygame.draw.rect(screen, BG_COLOR, (inv_x, inv_y, inv_width, inv_height))
     pygame.draw.rect(screen, BORDER_COLOR, (inv_x, inv_y, inv_width, inv_height), 3)
 
-    # Police
+    # Polices
     title_font = pygame.font.Font(None, 36)
-    item_font = pygame.font.Font(None, 28)
+    item_font = pygame.font.Font(None, 26)
     small_font = pygame.font.Font(None, 22)
     button_font = pygame.font.Font(None, 24)
+    tag_font = pygame.font.Font(None, 20)
 
-    # Titre
-    title_text = title_font.render(f"INVENTAIRE ({len(inventory)}/{MAX_INVENTORY_SIZE})", True, TITLE_COLOR)
-    title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, inv_y + 30))
-    screen.blit(title_text, title_rect)
+    # Onglets
+    tab_width = inv_width // 2
+    tab_height = 35
+    tab_y = inv_y
 
-    # Ligne de séparation
-    pygame.draw.line(screen, BORDER_COLOR,
-                     (inv_x + 10, inv_y + 60),
-                     (inv_x + inv_width - 10, inv_y + 60), 2)
+    tab_bag_rect = (inv_x, tab_y, tab_width, tab_height)
+    tab_equip_rect = (inv_x + tab_width, tab_y, tab_width, tab_height)
 
-    # Afficher les items
+    # Dessiner les onglets
+    pygame.draw.rect(screen, TAB_ACTIVE if active_tab == "bag" else TAB_INACTIVE, tab_bag_rect)
+    pygame.draw.rect(screen, TAB_ACTIVE if active_tab == "equip" else TAB_INACTIVE, tab_equip_rect)
+    pygame.draw.rect(screen, BORDER_COLOR, tab_bag_rect, 2)
+    pygame.draw.rect(screen, BORDER_COLOR, tab_equip_rect, 2)
+
+    bag_text = button_font.render(f"Sac ({len(inventory)}/{MAX_INVENTORY_SIZE})", True, TEXT_COLOR)
+    bag_text_rect = bag_text.get_rect(center=(inv_x + tab_width // 2, tab_y + tab_height // 2))
+    screen.blit(bag_text, bag_text_rect)
+
+    equip_text = button_font.render("Equipement", True, TEXT_COLOR)
+    equip_text_rect = equip_text.get_rect(center=(inv_x + tab_width + tab_width // 2, tab_y + tab_height // 2))
+    screen.blit(equip_text, equip_text_rect)
+
+    # Contenu selon l'onglet actif
+    content_y = tab_y + tab_height + 10
     item_rects = []
 
-    if not inventory:
-        empty_text = item_font.render("(vide)", True, (150, 150, 150))
-        empty_rect = empty_text.get_rect(center=(SCREEN_WIDTH // 2, inv_y + 100))
-        screen.blit(empty_text, empty_rect)
+    if active_tab == "bag":
+        # --- ONGLET SAC ---
+        if not inventory:
+            empty_text = item_font.render("(vide)", True, (150, 150, 150))
+            empty_rect = empty_text.get_rect(center=(SCREEN_WIDTH // 2, content_y + 40))
+            screen.blit(empty_text, empty_rect)
+        else:
+            y_offset = content_y
+            for i, item in enumerate(inventory):
+                is_equipped = item.get("equipped", False)
+                item_type = item.get("type", "")
+
+                # Fond coloré si équipé
+                if is_equipped:
+                    bg_color = EQUIPPED_BG
+                    text_color = (200, 255, 200)
+                else:
+                    bg_color = None
+                    text_color = TEXT_COLOR
+
+                item_rect = (inv_x + 10, y_offset - 2, inv_width - 20, 28)
+                item_rects.append((item, item_rect))
+
+                if bg_color:
+                    pygame.draw.rect(screen, bg_color, item_rect)
+
+                # Symbole coloré
+                sym_surface = item_font.render(item.get("symbol", "?"), True, item.get("color", TEXT_COLOR))
+                screen.blit(sym_surface, (inv_x + 15, y_offset))
+
+                # Nom
+                name = item.get("name", "???")
+                if len(name) > 28:
+                    name = name[:26] + ".."
+                name_surface = item_font.render(name, True, text_color)
+                screen.blit(name_surface, (inv_x + 35, y_offset))
+
+                # Slot info si équipé
+                if is_equipped:
+                    slot_name = SLOT_NAMES.get(item.get("equipped_slot", ""), "")
+                    slot_surface = tag_font.render(f"[{slot_name}]", True, (150, 255, 150))
+                    screen.blit(slot_surface, (inv_x + inv_width - 80, y_offset + 2))
+
+                # Stats courtes à droite
+                stat_text = ""
+                if item_type == "weapon":
+                    atk = item.get("attack", 0) + item.get("elemental_attack", 0)
+                    stat_text = f"+{atk} ATK"
+                elif item_type in ["armor", "shield"]:
+                    stat_text = f"+{item.get('defense', 0)} DEF"
+                elif item_type == "food":
+                    stat_text = f"+{item.get('hunger_restore', 0)} Faim"
+                elif item_type == "accessory":
+                    bonuses = item.get("bonuses", {})
+                    parts = [f"+{v} {k}" for k, v in bonuses.items()]
+                    stat_text = ", ".join(parts) if parts else ""
+
+                if stat_text:
+                    stat_surface = tag_font.render(stat_text, True, (180, 180, 180))
+                    screen.blit(stat_surface, (inv_x + 300, y_offset + 4))
+
+                y_offset += 30
+
+                if y_offset > inv_y + inv_height - 70:
+                    more_text = small_font.render("...", True, (150, 150, 150))
+                    screen.blit(more_text, (inv_x + 15, y_offset))
+                    break
+
     else:
-        y_offset = inv_y + 80
-        for i, item in enumerate(inventory):
-            is_equipped = item.get("equipped", False)
+        # --- ONGLET ÉQUIPEMENT ---
+        y_offset = content_y
+        for slot in EQUIPMENT_SLOTS:
+            item = player["equipment"].get(slot)
+            slot_label = SLOT_NAMES.get(slot, slot)
 
-            if is_equipped:
-                bg_color = (50, 100, 50)
-                text_color = (200, 255, 200)
-                icon = "⚔️ " if item["type"] == "weapon" else "🛡️ " if item["type"] == "armor" else "✓ "
+            slot_rect = (inv_x + 10, y_offset - 2, inv_width - 20, 28)
+
+            if item:
+                item_rects.append((item, slot_rect))
+                pygame.draw.rect(screen, EQUIPPED_BG, slot_rect)
+
+                # Label du slot
+                label_surface = small_font.render(f"{slot_label}:", True, (150, 200, 150))
+                screen.blit(label_surface, (inv_x + 15, y_offset + 2))
+
+                # Symbole + nom
+                sym_surface = item_font.render(item.get("symbol", "?"), True, item.get("color", TEXT_COLOR))
+                screen.blit(sym_surface, (inv_x + 90, y_offset))
+
+                name = item.get("name", "???")
+                if len(name) > 22:
+                    name = name[:20] + ".."
+                name_surface = item_font.render(name, True, (200, 255, 200))
+                screen.blit(name_surface, (inv_x + 110, y_offset))
+
+                # Stats
+                stat_text = ""
+                if item.get("type") == "weapon":
+                    atk = item.get("attack", 0) + item.get("elemental_attack", 0)
+                    stat_text = f"+{atk} ATK"
+                elif item.get("type") in ["armor", "shield"]:
+                    stat_text = f"+{item.get('defense', 0)} DEF"
+                elif item.get("type") == "accessory":
+                    bonuses = item.get("bonuses", {})
+                    parts = [f"+{v} {k}" for k, v in bonuses.items()]
+                    stat_text = ", ".join(parts) if parts else ""
+
+                if stat_text:
+                    stat_surface = tag_font.render(stat_text, True, (180, 180, 180))
+                    screen.blit(stat_surface, (inv_x + inv_width - 100, y_offset + 4))
             else:
-                bg_color = None
-                text_color = TEXT_COLOR
-                icon = ""
+                # Slot vide
+                pygame.draw.rect(screen, SLOT_EMPTY, slot_rect)
+                label_surface = small_font.render(f"{slot_label}:", True, (120, 120, 130))
+                screen.blit(label_surface, (inv_x + 15, y_offset + 2))
+                empty_surface = small_font.render("(vide)", True, (90, 90, 100))
+                screen.blit(empty_surface, (inv_x + 110, y_offset + 2))
 
-            item_rect = (inv_x + 15, y_offset - 5, inv_width - 30, 30)
-            item_rects.append((item, item_rect))
+            y_offset += 32
 
-            if bg_color:
-                pygame.draw.rect(screen, bg_color, item_rect)
-
-            item_text = f"{i+1}. {icon}{item['name']}"
-            text_surface = item_font.render(item_text, True, text_color)
-            screen.blit(text_surface, (inv_x + 20, y_offset))
-
-            type_text = f"({item['type']})"
-            type_surface = small_font.render(type_text, True, (180, 180, 180))
-            screen.blit(type_surface, (inv_x + 300, y_offset + 5))
-
-            y_offset += 35
-
-            if y_offset > inv_y + inv_height - 100:
-                more_text = small_font.render("...", True, (150, 150, 150))
-                screen.blit(more_text, (inv_x + 20, y_offset))
-                break
+    # Ligne de séparation avant le bouton
+    sep_y = inv_y + inv_height - 55
+    pygame.draw.line(screen, BORDER_COLOR, (inv_x + 10, sep_y), (inv_x + inv_width - 10, sep_y), 1)
 
     # Bouton "Fermer"
     button_width = 100
     button_height = 35
     button_x = (SCREEN_WIDTH - button_width) // 2
-    button_y = inv_y + inv_height - 50
+    button_y = inv_y + inv_height - 48
 
     pygame.draw.rect(screen, BUTTON_COLOR, (button_x, button_y, button_width, button_height))
     pygame.draw.rect(screen, BORDER_COLOR, (button_x, button_y, button_width, button_height), 2)
 
-    button_text = button_font.render("Fermer", True, TEXT_COLOR)
-    button_text_rect = button_text.get_rect(center=(button_x + button_width // 2, button_y + button_height // 2))
-    screen.blit(button_text, button_text_rect)
+    close_text = button_font.render("Fermer", True, TEXT_COLOR)
+    close_rect = close_text.get_rect(center=(button_x + button_width // 2, button_y + button_height // 2))
+    screen.blit(close_text, close_rect)
 
-    # Retourner les coordonnées de la fenêtre, du bouton ET des items
     return {
         'window': (inv_x, inv_y, inv_width, inv_height),
         'close_button': (button_x, button_y, button_width, button_height),
-        'items': item_rects
+        'items': item_rects,
+        'tab_bag': tab_bag_rect,
+        'tab_equip': tab_equip_rect,
+        'active_tab': active_tab,
     }
 
-def draw_inventory_button(screen, SCREEN_WIDTH, inventory_open):
-    """Dessine le bouton pour ouvrir/fermer l'inventaire"""
 
+def draw_inventory_button(screen, SCREEN_WIDTH, inventory_open):
     button_width = 60
     button_height = 40
     button_x = SCREEN_WIDTH - button_width - 10
@@ -346,10 +424,8 @@ def draw_inventory_button(screen, SCREEN_WIDTH, inventory_open):
     else:
         button_color = (150, 150, 150)
 
-    border_color = (255, 255, 255)
-
     pygame.draw.rect(screen, button_color, (button_x, button_y, button_width, button_height))
-    pygame.draw.rect(screen, border_color, (button_x, button_y, button_width, button_height), 2)
+    pygame.draw.rect(screen, (255, 255, 255), (button_x, button_y, button_width, button_height), 2)
 
     button_font = pygame.font.Font(None, 32)
     text = button_font.render("I", True, (255, 255, 255))
@@ -360,29 +436,67 @@ def draw_inventory_button(screen, SCREEN_WIDTH, inventory_open):
 
 
 # ==========================================
-# TOOLTIPS (positions écran, pas de caméra)
+# TOOLTIPS
 # ==========================================
 
 def draw_tooltip(screen, item, mouse_x, mouse_y, SCREEN_WIDTH, SCREEN_HEIGHT):
-    """Dessine une infobulle avec les stats de l'item au survol"""
+    """Dessine une infobulle enrichie avec tags, élément et stats détaillées"""
 
-    tooltip_width = 200
+    tooltip_width = 240
     tooltip_padding = 10
-    line_height = 25
+    line_height = 22
 
     lines = []
-    lines.append(item['name'])
-    lines.append(f"Type: {item['type']}")
+    line_colors = []
 
-    if item['type'] == 'weapon':
+    # Nom de l'item
+    lines.append(item.get('name', '???'))
+    line_colors.append(item.get('color', (255, 255, 100)))
+
+    # Tags
+    tags = item.get('tags', [])
+    if tags:
+        lines.append("Tags: " + ", ".join(tags))
+        line_colors.append((180, 180, 180))
+
+    # Type / Slot
+    item_type = item.get('type', '')
+    slot = item.get('equipped_slot') or item.get('slot', '')
+    slot_label = SLOT_NAMES.get(slot, slot) if slot else ""
+    if item_type and slot_label:
+        lines.append(f"Type: {item_type} | Slot: {slot_label}")
+        line_colors.append((150, 150, 200))
+
+    # Stats
+    if item_type == 'weapon':
         lines.append(f"+{item.get('attack', 0)} Attaque")
-    elif item['type'] == 'armor':
-        lines.append(f"+{item.get('defense', 0)} Défense")
-    elif item['type'] == 'food':
-        lines.append(f"+{item.get('hunger_restore', 0)} Faim")
+        line_colors.append((255, 200, 150))
+        elem_atk = item.get('elemental_attack', 0)
+        if elem_atk > 0:
+            element = item.get('element', '?')
+            lines.append(f"+{elem_atk} {element}")
+            line_colors.append(item.get('color', (200, 200, 200)))
+        if item.get('two_handed'):
+            lines.append("(Deux mains)")
+            line_colors.append((200, 150, 100))
 
+    elif item_type in ['armor', 'shield']:
+        lines.append(f"+{item.get('defense', 0)} Defense")
+        line_colors.append((150, 200, 255))
+
+    elif item_type == 'food':
+        lines.append(f"+{item.get('hunger_restore', 0)} Faim")
+        line_colors.append((255, 200, 100))
+
+    elif item_type == 'accessory':
+        for stat, value in item.get('bonuses', {}).items():
+            lines.append(f"+{value} {stat}")
+            line_colors.append((200, 200, 255))
+
+    # Statut équipé
     if item.get('equipped', False):
-        lines.append("✓ Équipé")
+        lines.append(">> Equipe <<")
+        line_colors.append((100, 255, 100))
 
     tooltip_height = len(lines) * line_height + tooltip_padding * 2
 
@@ -396,31 +510,23 @@ def draw_tooltip(screen, item, mouse_x, mouse_y, SCREEN_WIDTH, SCREEN_HEIGHT):
     elif tooltip_y + tooltip_height > SCREEN_HEIGHT:
         tooltip_y = SCREEN_HEIGHT - tooltip_height
 
-    BG_COLOR = (30, 30, 30)
-    BORDER_COLOR = (200, 200, 100)
-    TEXT_COLOR = (255, 255, 255)
-    TITLE_COLOR = (255, 255, 100)
+    pygame.draw.rect(screen, (30, 30, 30), (tooltip_x, tooltip_y, tooltip_width, tooltip_height))
+    pygame.draw.rect(screen, (200, 200, 100), (tooltip_x, tooltip_y, tooltip_width, tooltip_height), 2)
 
-    pygame.draw.rect(screen, BG_COLOR, (tooltip_x, tooltip_y, tooltip_width, tooltip_height))
-    pygame.draw.rect(screen, BORDER_COLOR, (tooltip_x, tooltip_y, tooltip_width, tooltip_height), 2)
-
-    tooltip_font = pygame.font.Font(None, 22)
     y_offset = tooltip_y + tooltip_padding
-
     for i, line in enumerate(lines):
         if i == 0:
             font = pygame.font.Font(None, 26)
-            color = TITLE_COLOR
         else:
-            font = tooltip_font
-            color = TEXT_COLOR
-
+            font = pygame.font.Font(None, 22)
+        color = line_colors[i] if i < len(line_colors) else (255, 255, 255)
         text_surface = font.render(line, True, color)
         screen.blit(text_surface, (tooltip_x + tooltip_padding, y_offset))
         y_offset += line_height
 
+
 def draw_enemy_tooltip(screen, enemy, mouse_x, mouse_y, SCREEN_WIDTH, SCREEN_HEIGHT):
-    """Dessine une infobulle avec les stats de l'ennemi au survol"""
+    """Dessine une infobulle avec les stats de l'ennemi"""
 
     tooltip_width = 240
     tooltip_padding = 10
