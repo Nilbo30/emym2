@@ -49,32 +49,6 @@ def pickup_item(item, items):
         else:
             print(f"→ Ajouté à l'inventaire (vous avez déjà un {item['type']} équipé)")
 
-def equip_item(item):
-    """Équipe un objet depuis l'inventaire"""
-    if item["type"] == "weapon":
-        player["attack"] += item.get("attack", 0)
-        print(f"Vous équipez : {item['name']} (+{item['attack']} ATK)")
-        print(f"Attaque totale : {player['attack']}")
-
-    elif item["type"] == "armor":
-        player["defense"] += item.get("defense", 0)
-        print(f"Vous équipez : {item['name']} (+{item['defense']} DEF)")
-        print(f"Défense totale : {player['defense']}")
-
-
-def use_item(item):
-    """Utilise un consommable (nourriture, potion, etc.)"""
-    if item["type"] == "food":
-        player["hunger"] += item.get("hunger_restore", 0)
-        if player["hunger"] > player["max_hunger"]:
-            player["hunger"] = player["max_hunger"]
-        print(f"Vous mangez : {item['name']} (+{item['hunger_restore']} Faim)")
-        print(f"Faim : {player['hunger']}/{player['max_hunger']}")
-        return True  # Consommable utilisé, on peut le retirer
-
-    return False  # Pas un consommable
-
-
 def combat(enemy, enemies):
     """Gère le combat entre le joueur et un ennemi - Retourne True si le joueur meurt"""
     # Le joueur attaque l'ennemi

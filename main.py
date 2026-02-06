@@ -39,6 +39,8 @@ items = []
 rooms = []
 current_floor = 1
 inventory_open = False
+inventory_button_rect = (0, 0, 0, 0)
+inventory_rects = None
 
 
 def create_explored_map():
@@ -173,6 +175,8 @@ while running:
             if event.key == pygame.K_i:
                 inventory_open = not inventory_open
                 continue  # Ne pas traiter comme un mouvement
+            if inventory_open:
+                continue  # Bloquer le mouvement si l'inventaire est ouvert
             new_x = player["x"]
             new_y = player["y"]
 
@@ -234,7 +238,7 @@ while running:
         if 0 <= x < MAP_WIDTH and 0 <= y < MAP_HEIGHT:
             explored[y][x] = True
 
-# Détecter le survol de souris (pour les tooltips)
+    # Détecter le survol de souris (pour les tooltips)
     hovered_item = None
     hovered_enemy = None
     mouse_x, mouse_y = pygame.mouse.get_pos()

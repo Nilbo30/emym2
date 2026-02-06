@@ -62,9 +62,8 @@ def print_inventory():
         print("(vide)")
     else:
         for i, item in enumerate(inventory):
-            equipped_status = "⚔️ ÉQUIPÉ" if item.get("equipped", False) else ""  # ← AJOUTE
+            equipped_status = "⚔️ ÉQUIPÉ" if item.get("equipped", False) else ""
             print(f"{i+1}. {item['name']} ({item['type']}) {equipped_status}")
-            print(f"{i+1}. {item['name']} ({item['type']})")
     print(f"Total : {len(inventory)}/{MAX_INVENTORY_SIZE}")
     print("==================\n")
 

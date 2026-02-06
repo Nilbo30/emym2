@@ -236,7 +236,7 @@ def draw_inventory(screen, inventory, SCREEN_WIDTH, SCREEN_HEIGHT):
     button_text_rect = button_text.get_rect(center=(button_x + button_width // 2, button_y + button_height // 2))
     screen.blit(button_text, button_text_rect)
 
-# Retourner les coordonnées de la fenêtre, du bouton ET des items
+    # Retourner les coordonnées de la fenêtre, du bouton ET des items
     return {
         'window': (inv_x, inv_y, inv_width, inv_height),
         'close_button': (button_x, button_y, button_width, button_height),
