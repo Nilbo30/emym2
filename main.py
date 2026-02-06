@@ -13,6 +13,7 @@ from rendering import (draw_map, draw_player, draw_enemies, draw_items, draw_ui,
                        draw_tooltip, draw_enemy_tooltip,
                        update_camera, get_camera, VIEWPORT_WIDTH, VIEWPORT_HEIGHT)
 from game_logic import get_item_at, pickup_item, combat, can_move
+from ranged_combat import player_has_bow, ranged_attack
 from items import spawn_items
 from inventory import clear_inventory, print_inventory
 
@@ -172,13 +173,40 @@ while running:
 
                 continue
 
-            # Si l'inventaire est fermé, vérifier le bouton d'ouverture
+            # Si l'inventaire est fermé
             else:
+                # Vérifier le bouton d'ouverture de l'inventaire
                 button_x, button_y, button_width, button_height = inventory_button_rect
 
                 if button_x <= mouse_x <= button_x + button_width:
                     if button_y <= mouse_y <= button_y + button_height:
                         inventory_open = not inventory_open
+                        continue
+
+                # --- TIR A L'ARC (clic gauche, inventaire fermé) ---
+                if event.button == 1 and player_has_bow():
+                    # Convertir position souris en coordonnées monde
+                    cam_x, cam_y = get_camera()
+                    target_x = cam_x + mouse_x // TILE_SIZE
+                    target_y = cam_y + mouse_y // TILE_SIZE
+
+                    # Chercher un ennemi visible à cette position
+                    target_enemy = None
+                    vis = calculate_visible_tiles(player["x"], player["y"], VISION_RADIUS)
+                    for enemy in enemies:
+                        if enemy["x"] == target_x and enemy["y"] == target_y:
+                            if (enemy["x"], enemy["y"]) in vis:
+                                target_enemy = enemy
+                            break
+
+                    if target_enemy:
+                        success, player_died = ranged_attack(target_enemy, enemies, game_map)
+                        if success:
+                            if player_died:
+                                game_over()
+                            else:
+                                # Tour des ennemis après le tir
+                                enemy_turn(enemies, player, game_map)
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_i:
