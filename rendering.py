@@ -25,7 +25,8 @@ SLOT_NAMES = {
     "main_hand": "Main",
     "off_hand": "Second.",
     "body": "Torse",
-    "head": "Tête",
+    "head": "Tete",
+    "legs": "Jambes",
     "hands": "Mains",
     "feet": "Pieds",
     "ring1": "Anneau 1",
@@ -575,3 +576,127 @@ def draw_enemy_tooltip(screen, enemy, mouse_x, mouse_y, SCREEN_WIDTH, SCREEN_HEI
         text_surface = font.render(line, True, color)
         screen.blit(text_surface, (tooltip_x + tooltip_padding, y_offset))
         y_offset += line_height
+
+
+# ==========================================
+# ÉCRAN DE COMPÉTENCES (touche S)
+# ==========================================
+
+def draw_stats_screen(screen, SCREEN_WIDTH, SCREEN_HEIGHT):
+    """Dessine l'écran de compétences par-dessus le jeu"""
+    from skills import get_all_skills, get_xp_progress
+
+    # Couleurs
+    BG_COLOR = (35, 35, 50)
+    BORDER_COLOR = (180, 180, 220)
+    TEXT_COLOR = (255, 255, 255)
+    TITLE_COLOR = (255, 255, 100)
+    SECTION_COLOR = (200, 200, 255)
+    BAR_BG = (60, 60, 70)
+    BAR_WEAPON = (220, 120, 80)
+    BAR_ARMOR = (80, 160, 220)
+    BAR_ACCESSORY = (180, 140, 220)
+
+    # Dimensions
+    win_width = 460
+    win_height = 520
+    win_x = (SCREEN_WIDTH - win_width) // 2
+    win_y = (SCREEN_HEIGHT - win_height) // 2
+
+    # Overlay
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    overlay.set_alpha(180)
+    overlay.fill((0, 0, 0))
+    screen.blit(overlay, (0, 0))
+
+    # Fond
+    pygame.draw.rect(screen, BG_COLOR, (win_x, win_y, win_width, win_height))
+    pygame.draw.rect(screen, BORDER_COLOR, (win_x, win_y, win_width, win_height), 3)
+
+    # Polices
+    title_font = pygame.font.Font(None, 34)
+    section_font = pygame.font.Font(None, 26)
+    skill_font = pygame.font.Font(None, 22)
+    small_font = pygame.font.Font(None, 20)
+
+    # Titre
+    title_text = title_font.render("COMPETENCES", True, TITLE_COLOR)
+    title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, win_y + 25))
+    screen.blit(title_text, title_rect)
+
+    pygame.draw.line(screen, BORDER_COLOR,
+                     (win_x + 10, win_y + 45), (win_x + win_width - 10, win_y + 45), 2)
+
+    all_skills = get_all_skills()
+
+    # Catégories
+    categories = [
+        ("Armes", "weapon", BAR_WEAPON),
+        ("Armures", "armor", BAR_ARMOR),
+        ("Accessoires", "accessory", BAR_ACCESSORY),
+    ]
+
+    y_offset = win_y + 55
+    bar_width = 120
+    bar_height = 10
+
+    for cat_name, cat_key, bar_color in categories:
+        cat_skills = {k: v for k, v in all_skills.items() if v["category"] == cat_key}
+
+        # Afficher les skills actifs, ou les 3 premiers si aucun n'est actif
+        active_skills = {k: v for k, v in cat_skills.items() if v["level"] > 0 or v["xp"] > 0}
+        if not active_skills:
+            active_skills = dict(list(cat_skills.items())[:3])
+
+        # En-tête de section
+        section_text = section_font.render(f"-- {cat_name} --", True, SECTION_COLOR)
+        section_rect = section_text.get_rect(center=(SCREEN_WIDTH // 2, y_offset + 8))
+        screen.blit(section_text, section_rect)
+        y_offset += 24
+
+        for skill_key, skill in active_skills.items():
+            if y_offset > win_y + win_height - 50:
+                break
+
+            level = skill["level"]
+            xp_current, xp_needed = get_xp_progress(skill_key)
+            xp_ratio = xp_current / max(xp_needed, 0.01)
+            bonus = level * skill["bonus_per_level"]
+            bonus_label = "ATK" if skill["bonus_type"] == "attack" else "DEF" if skill["bonus_type"] == "defense" else "EFF"
+
+            # Nom + niveau
+            name_color = TEXT_COLOR if level > 0 else (100, 100, 110)
+            name_text = skill_font.render(f"{skill['name']}", True, name_color)
+            screen.blit(name_text, (win_x + 15, y_offset))
+
+            lvl_text = skill_font.render(f"Nv.{level}", True, bar_color if level > 0 else (80, 80, 90))
+            screen.blit(lvl_text, (win_x + 120, y_offset))
+
+            # Barre XP
+            bar_x = win_x + 175
+            bar_y = y_offset + 3
+
+            pygame.draw.rect(screen, BAR_BG, (bar_x, bar_y, bar_width, bar_height))
+            if level > 0 or xp_current > 0:
+                fill_width = int(bar_width * min(xp_ratio, 1.0))
+                if fill_width > 0:
+                    pygame.draw.rect(screen, bar_color, (bar_x, bar_y, fill_width, bar_height))
+            pygame.draw.rect(screen, BORDER_COLOR, (bar_x, bar_y, bar_width, bar_height), 1)
+
+            # XP numérique
+            xp_text = small_font.render(f"{xp_current:.1f}/{xp_needed:.1f}", True, (150, 150, 160))
+            screen.blit(xp_text, (bar_x + bar_width + 5, y_offset + 1))
+
+            # Bonus
+            if level > 0:
+                bonus_text = small_font.render(f"+{bonus:.1f} {bonus_label}", True, (200, 255, 200))
+                screen.blit(bonus_text, (win_x + win_width - 75, y_offset + 1))
+
+            y_offset += 22
+
+        y_offset += 8
+
+    # Indication de fermeture
+    close_text = small_font.render("Appuyez sur S pour fermer", True, (150, 150, 160))
+    close_rect = close_text.get_rect(center=(SCREEN_WIDTH // 2, win_y + win_height - 20))
+    screen.blit(close_text, close_rect)

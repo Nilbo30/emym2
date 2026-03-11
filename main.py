@@ -10,12 +10,13 @@ from enemies import spawn_enemies, get_enemy_at, enemy_turn
 from player import player, calculate_visible_tiles, reset_player, spawn_player_in_room, check_hunger, STEPS_PER_HUNGER
 from rendering import (draw_map, draw_player, draw_enemies, draw_items, draw_ui,
                        set_visible_tiles, draw_inventory, draw_inventory_button,
-                       draw_tooltip, draw_enemy_tooltip,
+                       draw_tooltip, draw_enemy_tooltip, draw_stats_screen,
                        update_camera, get_camera, VIEWPORT_WIDTH, VIEWPORT_HEIGHT)
 from game_logic import get_item_at, pickup_item, combat, can_move
-from ranged_combat import player_has_bow, ranged_attack
+from ranged_combat import player_has_ranged_weapon, ranged_attack
 from items import spawn_items
 from inventory import clear_inventory, print_inventory
+from skills import tick_armor_xp, reset_skills
 
 # Initialisation de Pygame
 pygame.init()
@@ -44,6 +45,7 @@ inventory_open = False
 inventory_tab = "bag"  # "bag" ou "equip"
 inventory_button_rect = (0, 0, 0, 0)
 inventory_rects = None
+stats_open = False  # Écran de compétences
 
 
 def create_explored_map():
@@ -75,7 +77,8 @@ def descend_floor():
 
 def game_over():
     """Game over - réinitialise le jeu"""
-    global current_floor, game_map, enemies, items, rooms, explored, inventory_open, inventory_tab
+    global current_floor, game_map, enemies, items, rooms, explored
+    global inventory_open, inventory_tab, stats_open
 
     print("\n" + "="*50)
     print("GAME OVER !")
@@ -91,8 +94,10 @@ def game_over():
 
     clear_inventory()
     reset_player(rooms[0] if rooms else None)
+    reset_skills()
     inventory_open = False
     inventory_tab = "bag"
+    stats_open = False
 
     pygame.display.set_caption("Roguelike - Etage 1")
 
@@ -124,6 +129,11 @@ while running:
         # Clics de souris
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_x, mouse_y = pygame.mouse.get_pos()
+
+            # Si l'écran de stats est ouvert, clic ferme
+            if stats_open:
+                stats_open = False
+                continue
 
             # Si l'inventaire est ouvert
             if inventory_open and inventory_rects:
@@ -183,8 +193,8 @@ while running:
                         inventory_open = not inventory_open
                         continue
 
-                # --- TIR A L'ARC (clic gauche, inventaire fermé) ---
-                if event.button == 1 and player_has_bow():
+                # --- TIR A DISTANCE (clic gauche, inventaire fermé) ---
+                if event.button == 1 and player_has_ranged_weapon():
                     # Convertir position souris en coordonnées monde
                     cam_x, cam_y = get_camera()
                     target_x = cam_x + mouse_x // TILE_SIZE
@@ -205,19 +215,32 @@ while running:
                             if player_died:
                                 game_over()
                             else:
+                                # XP passive armure après le tir (c'est un tour)
+                                tick_armor_xp()
                                 # Tour des ennemis après le tir
                                 enemy_turn(enemies, player, game_map)
 
         if event.type == pygame.KEYDOWN:
+            # Touche I : inventaire
             if event.key == pygame.K_i:
                 inventory_open = not inventory_open
+                stats_open = False  # Fermer stats si ouvert
                 continue
+
+            # Touche S : écran de compétences
+            if event.key == pygame.K_s:
+                stats_open = not stats_open
+                inventory_open = False  # Fermer inventaire si ouvert
+                continue
+
             # Tab pour changer d'onglet quand l'inventaire est ouvert
             if inventory_open and event.key == pygame.K_TAB:
                 inventory_tab = "equip" if inventory_tab == "bag" else "bag"
                 continue
-            if inventory_open:
-                continue  # Bloquer le mouvement si l'inventaire est ouvert
+
+            # Bloquer le mouvement si un overlay est ouvert
+            if inventory_open or stats_open:
+                continue
 
             new_x = player["x"]
             new_y = player["y"]
@@ -241,11 +264,16 @@ while running:
                 if player_died:
                     game_over()
                 else:
+                    # XP passive armure (tour de combat)
+                    tick_armor_xp()
                     enemy_turn(enemies, player, game_map)
 
             elif can_move(new_x, new_y, game_map, MAP_WIDTH, MAP_HEIGHT):
                 player["x"] = new_x
                 player["y"] = new_y
+
+                # XP passive armure à chaque mouvement
+                tick_armor_xp()
 
                 # La faim diminue tous les STEPS_PER_HUNGER pas
                 player["step_counter"] += 1
@@ -290,8 +318,8 @@ while running:
                 hovered_item = item
                 break
 
-    # Tooltip d'ennemi (seulement si inventaire fermé)
-    if not inventory_open:
+    # Tooltip d'ennemi / item au sol (seulement si aucun overlay)
+    if not inventory_open and not stats_open:
         cam_x, cam_y = get_camera()
         grid_x = cam_x + mouse_x // TILE_SIZE
         grid_y = cam_y + mouse_y // TILE_SIZE
@@ -303,7 +331,6 @@ while running:
                     hovered_enemy = enemy
                     break
 
-        # Tooltip d'item au sol
         if not hovered_enemy:
             for item in items:
                 if item["x"] == grid_x and item["y"] == grid_y:
@@ -333,6 +360,10 @@ while running:
         inventory_rects = draw_inventory(screen, get_inventory(), SCREEN_WIDTH, SCREEN_HEIGHT, active_tab=inventory_tab)
     else:
         inventory_rects = None
+
+    # Écran de compétences par-dessus si ouvert
+    if stats_open:
+        draw_stats_screen(screen, SCREEN_WIDTH, SCREEN_HEIGHT)
 
     # Tooltips
     if hovered_item:

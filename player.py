@@ -3,7 +3,7 @@ Gestion du joueur, de sa vision et de ses slots d'équipement
 """
 
 # Slots d'équipement disponibles
-EQUIPMENT_SLOTS = ["main_hand", "off_hand", "body", "head", "hands", "feet", "ring1", "ring2", "amulet"]
+EQUIPMENT_SLOTS = ["main_hand", "off_hand", "body", "head", "legs", "hands", "feet", "ring1", "ring2", "amulet"]
 
 # Dictionnaire du joueur (toutes ses stats)
 player = {
@@ -27,6 +27,7 @@ player = {
         "off_hand": None,
         "body": None,
         "head": None,
+        "legs": None,
         "hands": None,
         "feet": None,
         "ring1": None,
@@ -56,7 +57,14 @@ def calculate_visible_tiles(player_x, player_y, vision_radius):
 
 
 def recalculate_stats():
-    """Recalcule attack/defense/bonuses du joueur d'après l'équipement"""
+    """
+    Recalcule attack/defense/bonuses du joueur d'après :
+    - Stats de base
+    - Équipement porté
+    - Bonus de skills (skill_level * bonus_per_level)
+    """
+    from skills import get_skill_bonus, get_weapon_skill_key, SLOT_SKILL_MAP
+
     total_attack = player["base_attack"]
     total_defense = player["base_defense"]
     bonus_max_hp = 0
@@ -66,8 +74,11 @@ def recalculate_stats():
     for slot_name, item in player["equipment"].items():
         if item is None:
             continue
+
+        # Stats brutes de l'item
         total_attack += item.get("attack", 0) + item.get("elemental_attack", 0)
         total_defense += item.get("defense", 0)
+
         # Bonuses d'accessoires
         for stat, value in item.get("bonuses", {}).items():
             if stat == "attack":
@@ -80,6 +91,37 @@ def recalculate_stats():
                 bonus_max_mana += value
             elif stat == "max_hunger":
                 bonus_max_hunger += value
+
+        # --- BONUS DE SKILLS ---
+        if slot_name == "main_hand" and item.get("type") == "weapon":
+            # Skill d'arme → bonus ATK
+            weapon_type = item.get("weapon_type", "")
+            skill_key = get_weapon_skill_key(weapon_type)
+            if skill_key:
+                total_attack += int(get_skill_bonus(skill_key))
+        elif slot_name == "off_hand" and item.get("type") == "shield":
+            # Skill bouclier → bonus DEF
+            total_defense += int(get_skill_bonus("shield"))
+        elif slot_name in SLOT_SKILL_MAP:
+            # Skill armure/accessoire → bonus DEF ou efficacité
+            skill_key = SLOT_SKILL_MAP[slot_name]
+            bonus = get_skill_bonus(skill_key)
+            if item.get("type") in ["armor"]:
+                total_defense += int(bonus)
+            elif item.get("type") == "accessory":
+                # Efficacité : amplifie les bonus de l'accessoire
+                for stat, value in item.get("bonuses", {}).items():
+                    extra = int(value * bonus * 0.1)
+                    if stat == "attack":
+                        total_attack += extra
+                    elif stat == "defense":
+                        total_defense += extra
+                    elif stat == "max_hp":
+                        bonus_max_hp += extra
+                    elif stat == "max_mana":
+                        bonus_max_mana += extra
+                    elif stat == "max_hunger":
+                        bonus_max_hunger += extra
 
     player["attack"] = total_attack
     player["defense"] = total_defense

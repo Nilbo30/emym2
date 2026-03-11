@@ -43,13 +43,22 @@ def pickup_item(item, items):
 
 def combat(enemy, enemies):
     """Gère le combat entre le joueur et un ennemi - Retourne True si le joueur meurt"""
+    from skills import gain_xp, get_weapon_skill_key, on_hit_armor_xp
+
+    # --- XP de l'arme utilisée ---
+    weapon = player["equipment"].get("main_hand")
+    if weapon and weapon.get("weapon_type"):
+        skill_key = get_weapon_skill_key(weapon["weapon_type"])
+        if skill_key:
+            gain_xp(skill_key, 1.0)
+
     # Le joueur attaque l'ennemi
     damage_to_enemy = player["attack"] - enemy.get("defense", 0)
     if damage_to_enemy < 1:
         damage_to_enemy = 1
 
     enemy["hp"] -= damage_to_enemy
-    print(f"Vous infligez {damage_to_enemy} dégâts à l'ennemi ! (HP: {enemy['hp']}/{enemy['max_hp']})")
+    print(f"Vous infligez {damage_to_enemy} degats ! (HP: {enemy['hp']}/{enemy['max_hp']})")
 
     # Vérifier si l'ennemi est mort
     if enemy["hp"] <= 0:
@@ -63,7 +72,10 @@ def combat(enemy, enemies):
         damage_to_player = 1
 
     player["hp"] -= damage_to_player
-    print(f"L'ennemi vous inflige {damage_to_player} dégâts ! (Vos HP: {player['hp']}/{player['max_hp']})")
+    print(f"L'ennemi vous inflige {damage_to_player} degats ! (Vos HP: {player['hp']}/{player['max_hp']})")
+
+    # --- XP bonus armure quand touché ---
+    on_hit_armor_xp()
 
     # Le combat consomme de la faim
     player["hunger"] -= 1

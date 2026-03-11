@@ -1,9 +1,12 @@
 """
-Système de combat à distance (Arc).
+Système de combat à distance (Arc, Arbalète).
 Algorithme de Bresenham pour la ligne de vue et la trajectoire.
 """
 
 from player import player, check_hunger
+
+# Types d'armes qui peuvent tirer à distance
+RANGED_WEAPON_TYPES = {"Arc", "Arbalète"}
 
 
 def bresenham_line(x0, y0, x1, y1):
@@ -21,11 +24,9 @@ def bresenham_line(x0, y0, x1, y1):
     cx, cy = x0, y0
 
     while True:
-        # Ne pas inclure le point de départ (position du joueur)
         if (cx, cy) != (x0, y0):
             points.append((cx, cy))
 
-        # Arrivé à destination
         if cx == x1 and cy == y1:
             break
 
@@ -48,22 +49,24 @@ def has_line_of_sight(start_x, start_y, target_x, target_y, game_map):
     line = bresenham_line(start_x, start_y, target_x, target_y)
 
     for (lx, ly) in line:
-        # Si on atteint la cible, c'est bon
         if lx == target_x and ly == target_y:
             return True
-        # Un mur bloque la ligne de vue
         if game_map[ly][lx] == '#':
             return False
 
     return True
 
 
-def player_has_bow():
-    """Vérifie si le joueur a un Arc équipé en main_hand"""
+def player_has_ranged_weapon():
+    """Vérifie si le joueur a une arme à distance équipée en main_hand"""
     weapon = player["equipment"].get("main_hand")
     if weapon is None:
         return False
-    return weapon.get("weapon_type") == "Arc"
+    return weapon.get("weapon_type") in RANGED_WEAPON_TYPES
+
+
+# Alias pour compatibilité
+player_has_bow = player_has_ranged_weapon
 
 
 def ranged_attack(enemy, enemies, game_map):
@@ -71,9 +74,9 @@ def ranged_attack(enemy, enemies, game_map):
     Effectue une attaque à distance sur un ennemi.
     Vérifie la ligne de vue avant de tirer.
     Retourne : (success, player_died)
-      - success : True si le tir a eu lieu
-      - player_died : True si le joueur meurt (riposte impossible à distance, mais faim)
     """
+    from skills import gain_xp, get_weapon_skill_key
+
     px, py = player["x"], player["y"]
     ex, ey = enemy["x"], enemy["y"]
 
@@ -82,15 +85,21 @@ def ranged_attack(enemy, enemies, game_map):
         print("Ligne de vue bloquee par un mur !")
         return False, False
 
-    # Calculer les dégâts (attaque du joueur - défense de l'ennemi)
+    # XP de l'arme à distance
+    weapon = player["equipment"].get("main_hand")
+    weapon_type = weapon.get("weapon_type", "") if weapon else ""
+    weapon_name = weapon.get("name", "Arc") if weapon else "Arc"
+    skill_key = get_weapon_skill_key(weapon_type)
+    if skill_key:
+        gain_xp(skill_key, 1.0)
+
+    # Calculer les dégâts
     damage = player["attack"] - enemy.get("defense", 0)
     if damage < 1:
         damage = 1
 
     enemy["hp"] -= damage
-    weapon = player["equipment"].get("main_hand")
-    weapon_name = weapon.get("name", "Arc") if weapon else "Arc"
-    print(f"[Arc] Vous tirez sur {enemy.get('name', 'ennemi')} avec {weapon_name} !")
+    print(f"[Tir] Vous tirez sur {enemy.get('name', 'ennemi')} avec {weapon_name} !")
     print(f"  -> {damage} degats ! (HP: {enemy['hp']}/{enemy['max_hp']})")
 
     # Ennemi mort ?
@@ -98,7 +107,7 @@ def ranged_attack(enemy, enemies, game_map):
         print(f"  -> {enemy.get('name', 'ennemi')} est vaincu !")
         enemies.remove(enemy)
 
-    # Tirer consomme 1 de faim (comme un tour)
+    # Tirer consomme 1 de faim
     player["hunger"] -= 1
     player_died = check_hunger()
 

@@ -45,7 +45,8 @@ WEAPON_TYPES = {
     "Masse":  {"base_attack": 11, "slot": "main_hand", "two_handed": False, "symbol": "T",  "category": "melee"},
     "Lance":  {"base_attack": 12, "slot": "main_hand", "two_handed": True,  "symbol": "|",  "category": "melee"},
     # Distance
-    "Arc":    {"base_attack": 9,  "slot": "main_hand", "two_handed": True,  "symbol": ")",  "category": "ranged"},
+    "Arc":      {"base_attack": 9,  "slot": "main_hand", "two_handed": True,  "symbol": ")",  "category": "ranged"},
+    "Arbalète": {"base_attack": 11, "slot": "main_hand", "two_handed": True,  "symbol": ")",  "category": "ranged"},
     # Magiques
     "Bâton":    {"base_attack": 7,  "slot": "main_hand", "two_handed": True,  "symbol": "\\", "category": "magic"},
     "Baguette": {"base_attack": 5,  "slot": "main_hand", "two_handed": False, "symbol": "~",  "category": "magic"},
@@ -58,10 +59,11 @@ WEAPON_TYPES = {
 # ==========================================
 
 ARMOR_TYPES = {
-    "Armure":  {"base_defense": 8,  "slot": "body",  "symbol": "[", "category": "heavy"},
-    "Casque":  {"base_defense": 4,  "slot": "head",  "symbol": "^", "category": "heavy"},
-    "Gants":   {"base_defense": 3,  "slot": "hands", "symbol": "{", "category": "heavy"},
-    "Bottes":  {"base_defense": 3,  "slot": "feet",  "symbol": "}", "category": "heavy"},
+    "Armure":    {"base_defense": 8,  "slot": "body",  "symbol": "[", "category": "heavy"},
+    "Casque":    {"base_defense": 4,  "slot": "head",  "symbol": "^", "category": "heavy"},
+    "Jambières": {"base_defense": 5,  "slot": "legs",  "symbol": "=", "category": "heavy"},
+    "Gants":     {"base_defense": 3,  "slot": "hands", "symbol": "{", "category": "heavy"},
+    "Bottes":    {"base_defense": 3,  "slot": "feet",  "symbol": "}", "category": "heavy"},
 }
 
 # ==========================================
